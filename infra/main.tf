@@ -14,10 +14,14 @@ provider "aws" {
 }
 
 resource "aws_s3_bucket" "site_bucket" {
-  bucket = var.bucket_name
+  bucket = "${var.bucket_name}-${var.env}-${random_id.suffix.hex}"
   tags = {
-    Name = var.bucket_name
+    Name = "${var.bucket_name}-${var.env}"
   }
+}
+
+resource "random_id" "suffix" {
+  byte_length = 4
 }
 
 resource "aws_s3_bucket_website_configuration" "site_config" {
@@ -100,5 +104,5 @@ resource "aws_cloudfront_distribution" "cdn" {
 }
 
 resource "aws_s3_bucket" "logs" {
-  bucket = "${var.bucket_name}-logs"
+  bucket = "${var.bucket_name}-logs-${random_id.suffix.hex}"
 }
