@@ -5,7 +5,6 @@ terraform {
       version = "~> 5.0"
     }
   }
-
   required_version = ">= 1.5.0"
 }
 
@@ -13,17 +12,22 @@ provider "aws" {
   region = var.region
 }
 
-resource "aws_s3_bucket" "site_bucket" {
-  bucket = "${var.bucket_name}-${var.env}-${random_id.suffix.hex}"
-  tags = {
-    Name = "${var.bucket_name}-${var.env}"
-  }
-}
-
+# Generate random suffix to ensure unique bucket names
 resource "random_id" "suffix" {
   byte_length = 4
 }
 
+# S3 bucket for website files
+resource "aws_s3_bucket" "site_bucket" {
+  bucket = "${var.bucket_name}-${var.env}-${random_id.suffix.hex}"
+
+  tags = {
+    Name        = "${var.bucket_name}-${var.env}"
+    Environment = var.env
+  }
+}
+
+# Enable static website hosting configuration
 resource "aws_s3_bucket_website_configuration" "site_config" {
   bucket = aws_s3_bucket.site_bucket.id
 
@@ -36,6 +40,7 @@ resource "aws_s3_bucket_website_configuration" "site_config" {
   }
 }
 
+# Allow public access so CloudFront can read via OAI
 resource "aws_s3_bucket_public_access_block" "public_access" {
   bucket                  = aws_s3_bucket.site_bucket.id
   block_public_acls       = false
@@ -44,25 +49,12 @@ resource "aws_s3_bucket_public_access_block" "public_access" {
   restrict_public_buckets = false
 }
 
-resource "aws_s3_bucket_policy" "allow_public_access" {
-  bucket = aws_s3_bucket.site_bucket.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid       = "PublicReadGetObject"
-        Effect    = "Allow"
-        Principal = "*"
-        Action    = "s3:GetObject"
-        Resource  = "${aws_s3_bucket.site_bucket.arn}/*"
-      }
-    ]
-  })
-
-  depends_on = [aws_s3_bucket_public_access_block.public_access]
+# Create a CloudFront Origin Access Identity (OAI)
+resource "aws_cloudfront_origin_access_identity" "this" {
+  comment = "Allow CloudFront to access S3 bucket securely"
 }
 
+# Allow CloudFront OAI to read from S3
 resource "aws_s3_bucket_policy" "allow_oai_access" {
   bucket = aws_s3_bucket.site_bucket.id
 
@@ -80,9 +72,11 @@ resource "aws_s3_bucket_policy" "allow_oai_access" {
       }
     ]
   })
+
+  depends_on = [aws_s3_bucket_public_access_block.public_access]
 }
 
-
+# CloudFront distribution for the app
 resource "aws_cloudfront_distribution" "cdn" {
   enabled             = true
   default_root_object = "index.html"
@@ -90,6 +84,10 @@ resource "aws_cloudfront_distribution" "cdn" {
   origin {
     domain_name = aws_s3_bucket.site_bucket.bucket_regional_domain_name
     origin_id   = "s3origin"
+
+    s3_origin_config {
+      origin_access_identity = aws_cloudfront_origin_access_identity.this.cloudfront_access_identity_path
+    }
   }
 
   default_cache_behavior {
@@ -97,6 +95,7 @@ resource "aws_cloudfront_distribution" "cdn" {
     allowed_methods        = ["GET", "HEAD"]
     cached_methods         = ["GET", "HEAD"]
     target_origin_id       = "s3origin"
+
     forwarded_values {
       query_string = false
       cookies {
@@ -121,6 +120,12 @@ resource "aws_cloudfront_distribution" "cdn" {
   }
 }
 
+# S3 bucket for CloudFront logs
 resource "aws_s3_bucket" "logs" {
   bucket = "${var.bucket_name}-logs-${random_id.suffix.hex}"
+
+  tags = {
+    Name        = "${var.bucket_name}-logs"
+    Environment = var.env
+  }
 }
