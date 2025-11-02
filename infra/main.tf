@@ -42,11 +42,12 @@ resource "aws_s3_bucket_public_access_block" "public_access" {
 
 resource "aws_s3_bucket_policy" "allow_public_access" {
   bucket = aws_s3_bucket.site_bucket.id
+
   policy = jsonencode({
-    Version = "2012-10-17",
+    Version = "2012-10-17"
     Statement = [
       {
-        Sid       = "PublicRead",
+        Sid       = "PublicReadGetObject",
         Effect    = "Allow",
         Principal = "*",
         Action    = "s3:GetObject",
@@ -54,6 +55,8 @@ resource "aws_s3_bucket_policy" "allow_public_access" {
       }
     ]
   })
+
+  depends_on = [aws_s3_bucket_public_access_block.public_access]
 }
 
 resource "aws_cloudfront_origin_access_identity" "this" {}
