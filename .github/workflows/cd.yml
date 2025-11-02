@@ -4,6 +4,17 @@ on:
   push:
     branches: [devel, stage]
 
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Choose Terraform action (apply or destroy)"
+        required: true
+        default: "apply"
+        type: choice
+        options:
+          - apply
+          - destroy
+
 permissions:
   id-token: write
   contents: read
@@ -11,6 +22,7 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -28,12 +40,19 @@ jobs:
 
       - name: Terraform Init
         working-directory: infra
-        run: terraform init
+        run: terraform init -upgrade
 
       - name: Terraform Plan
         working-directory: infra
         run: terraform plan -out=tfplan
 
-      - name: Terraform Apply
+      - name: Run Terraform Apply or Destroy
         working-directory: infra
-        run: terraform apply -auto-approve tfplan
+        run: |
+          if [ "${{ github.event.inputs.action }}" == "destroy" ]; then
+            echo "🧨 Running Terraform Destroy..."
+            terraform destroy -auto-approve
+          else
+            echo "🚀 Running Terraform Apply..."
+            terraform apply -auto-approve tfplan
+          fi
