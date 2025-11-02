@@ -9,3 +9,8 @@ variable "bucket_name" {
   type        = string
   default     = "fsl-devops-demo-site"
 }
+
+variable "env" {
+  description = "Environment name (e.g., devel or stage)"
+  default     = "devel"
+}
