@@ -51,10 +51,10 @@ resource "aws_s3_bucket_policy" "allow_public_access" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid       = "PublicReadGetObject",
-        Effect    = "Allow",
-        Principal = "*",
-        Action    = "s3:GetObject",
+        Sid       = "PublicReadGetObject"
+        Effect    = "Allow"
+        Principal = "*"
+        Action    = "s3:GetObject"
         Resource  = "${aws_s3_bucket.site_bucket.arn}/*"
       }
     ]
@@ -63,7 +63,25 @@ resource "aws_s3_bucket_policy" "allow_public_access" {
   depends_on = [aws_s3_bucket_public_access_block.public_access]
 }
 
-resource "aws_cloudfront_origin_access_identity" "this" {}
+resource "aws_s3_bucket_policy" "allow_oai_access" {
+  bucket = aws_s3_bucket.site_bucket.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "AllowCloudFrontServicePrincipal",
+        Effect    = "Allow",
+        Principal = {
+          AWS = aws_cloudfront_origin_access_identity.this.iam_arn
+        },
+        Action    = "s3:GetObject",
+        Resource  = "${aws_s3_bucket.site_bucket.arn}/*"
+      }
+    ]
+  })
+}
+
 
 resource "aws_cloudfront_distribution" "cdn" {
   enabled             = true
