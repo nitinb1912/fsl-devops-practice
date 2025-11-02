@@ -62,10 +62,10 @@ resource "aws_s3_bucket_policy" "allow_oai_access" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid       = "AllowCloudFrontServicePrincipal",
+        Sid       = "AllowCloudFrontReadAccess",
         Effect    = "Allow",
         Principal = {
-          AWS = aws_cloudfront_origin_access_identity.this.iam_arn
+          CanonicalUser = aws_cloudfront_origin_access_identity.this.s3_canonical_user_id
         },
         Action    = "s3:GetObject",
         Resource  = "${aws_s3_bucket.site_bucket.arn}/*"
