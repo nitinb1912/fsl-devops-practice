@@ -1,3 +1,4 @@
+import '@testing-library/jest-dom';
 import logo from './logo.svg';
 import './App.css';
 
